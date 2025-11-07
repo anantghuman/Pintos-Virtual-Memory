@@ -11,13 +11,13 @@ static struct lock f_lock;
 void frame_init (void);
 frame* get_frame ();
 bool free_frame (void *kpage);
-frame* evict_frame (void);
+bool evict_frame (void);
 
 typedef struct frame_info 
 {
     void *kpage;
     void *upage;
-    struct thread *page;
+    struct thread *thread;
     struct list_elem elem;
     bool is_pinned;
 } frame;
