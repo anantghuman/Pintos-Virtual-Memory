@@ -8,7 +8,7 @@ struct list_elem *clock_hand;
 
 void frame_init(void) 
 {
-    list_init (&f_tables);
+    list_init (&f_table);
     lock_init (&f_lock);
     clock_hand = NULL;
 }
@@ -19,16 +19,19 @@ frame* get_frame(void *upage)
     void *kpage = palloc_get_page(PAL_USER);
     if (kpage == NULL) 
       {
-        lock_release(&f_lock);
-        palloc_free_page(kpage);
-        return NULL;
+        evict_frame();
+        kpage = palloc_get_page(PAL_USER);
+        if (kpage == NULL) {
+          lock_release(&f_lock);
+          return NULL;
+        }
       }
     frame *f = malloc (sizeof(frame));
     f->kpage = kpage;
     f->upage = upage;
     f->thread = thread_current();
     f->is_pinned = false;
-    list_push_back (&f_table, f);
+    list_push_back (&f_table, &f->elem);
     if (!clock_hand) 
       {
         clock_hand = list_begin(&f_table);
@@ -51,7 +54,7 @@ void evict_frame()
           {
             pagedir_set_accessed (current->thread->pagedir, current->upage, false);
           }
-        else 
+        else if (!current->is_pinned)
           {
             free_frame(current);
             evicted = true;
@@ -85,9 +88,10 @@ bool free_frame (void *kpage)
               }
             list_remove (&f->elem);
             palloc_free_page (f->kpage);
+            free(f);
             break;
           }
-        f = list_next (temp);
+        temp = list_next (temp);
       }
     lock_release(&f_lock);
     return check;

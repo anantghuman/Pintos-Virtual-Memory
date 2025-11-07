@@ -33,6 +33,9 @@ typedef struct supplemental_page_table
     struct lock spt_lock;   
 } spt;
 
+
+unsigned page_hash (const struct hash_elem *p_, void *aux);
+bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux);
 void init_spt (spt *to_initialize);
 void del_spt (spt *to_destroy);
 

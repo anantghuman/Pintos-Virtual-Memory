@@ -1,12 +1,11 @@
+#ifndef VM_FRAME_H
+#define VM_FRAME_H
+
 #include <list.h>
 #include <stdbool.h>
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/palloc.h"
-
-static struct list f_tables;
-static struct lock f_lock;
-
 
 void frame_init (void);
 frame* get_frame ();
@@ -21,3 +20,5 @@ typedef struct frame_info
     struct list_elem elem;
     bool is_pinned;
 } frame;
+
+#endif
