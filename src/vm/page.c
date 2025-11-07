@@ -1,5 +1,6 @@
 #include "vm/page.h"
 #include "threads/malloc.h"
+#include "threads/vaddr.h"
 
 /* Returns a hash value for page p. */
 unsigned
@@ -46,9 +47,37 @@ bool insert_file_spt (spt *table, void *upage, struct file *file,
 
 bool insert_zero_spt (spt *table, void *upage, bool writable)
 {
-    return false;
+    sp *supp = malloc (sizeof (sp));
+    if (!supp) 
+      {
+        return false;
+      }
+    supp->file = NULL;
+    supp->offset_val = 0;
+    supp->bytes = 0;
+    supp->padding_bytes = PGSIZE;
+    supp->is_writeable = writable;
+    supp->is_loaded = false;
+    supp->loc = SP_LOC_ZERO;
+    supp->vm_page = pg_round_down (upage);
+    supp->swap = SIZE_MAX;
+    return hash_insert (&table->htable, &supp->elem) == NULL;
 }
 bool mark_swapped_spt (spt *table, void *upage, size_t slot)
 {
-    return false;
+    lock_acquire (&table->spt_lock);
+    sp *supp;
+    supp->vm_page = pg_round_down (upage);
+    struct hash_elem *he = hash_find (&table->htable, &supp->elem);
+    if (!he) 
+      {
+        lock_release (&table->spt_lock);
+        return false;
+      }
+    sp *supp = hash_entry (he, sp, elem);
+    supp->is_loaded = false;
+    supp->swap = slot;
+    supp->loc = SP_LOC_SWAP;
+    lock_release (&table->spt_lock);
+    return true;
 }

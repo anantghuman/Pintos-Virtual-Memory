@@ -20,9 +20,10 @@ typedef struct supplemental_page
     struct file *file;
     off_t offset_val;
     size_t bytes;
-    int location;
+    int loc;
     bool is_writeable;
     bool is_loaded;
+    int padding_bytes;
     struct hash_elem elem;
     size_t swap;
 } sp;
