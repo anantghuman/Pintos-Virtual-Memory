@@ -11,7 +11,7 @@ static struct lock f_lock;
 void frame_init (void);
 frame* get_frame ();
 bool free_frame (void *kpage);
-bool evict_frame (void);
+void evict_frame (void);
 
 typedef struct frame_info 
 {

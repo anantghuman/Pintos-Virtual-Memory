@@ -18,26 +18,30 @@ frame* get_frame(void *upage)
     lock_acquire (&f_lock);
     void *kpage = palloc_get_page(PAL_USER);
     if (kpage == NULL) 
-      { 
-        if (!evict_frame()) {
-          lock_release(&f_lock);
-          palloc_free_page(kpage);
-          return NULL;
-        }
+      {
+        lock_release(&f_lock);
+        palloc_free_page(kpage);
+        return NULL;
       }
     frame *f = malloc (sizeof(frame));
     f->kpage = kpage;
     f->upage = upage;
-    // f->is_pinned = true;
-    list_push_back(&f_table, f);
+    f->thread = thread_current();
+    f->is_pinned = false;
+    list_push_back (&f_table, f);
+    if (!clock_hand) 
+      {
+        clock_hand = list_begin(&f_table);
+      }
+    lock_release (&f_lock);
     return f;
 }
 
-bool evict_frame() 
+void evict_frame() 
 {
     if (clock_hand == NULL) 
       {
-        clock_hand = list_begin(&f_table);
+        clock_hand = list_begin (&f_table);
       }
     bool evicted = false;
     while (!evicted) 
@@ -58,4 +62,33 @@ bool evict_frame()
             clock_hand = list_begin(&f_table);
           }
       }
+}
+
+bool free_frame (void *kpage) 
+{
+    lock_acquire(&f_lock);
+    bool check = false;
+    struct list_elem *temp = list_begin(&f_table);
+    while (temp != list_end(&f_table)) 
+      {
+        frame* f = list_entry(temp, frame, elem);
+        if (f->kpage == kpage) 
+          {
+            check = true;
+            if (clock_hand == &f->elem) 
+              {
+                clock_hand = list_next (clock_hand);
+                if (clock_hand == list_end (&f_table)) 
+                  {
+                    clock_hand = list_begin (&f_table);
+                  }
+              }
+            list_remove (&f->elem);
+            palloc_free_page (f->kpage);
+            break;
+          }
+        f = list_next (temp);
+      }
+    lock_release(&f_lock);
+    return check;
 }
