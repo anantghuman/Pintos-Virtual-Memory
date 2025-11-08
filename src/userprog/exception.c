@@ -162,6 +162,23 @@ static void page_fault (struct intr_frame *f)
    }
   }
 
+  if (not_present && user) 
+  {
+      void *esp = f->esp;
+      void *stack_bound = (uint8_t)PHYS_BASE - MAX_STACK_SIZE;
+      if (fault_addr >= stack_bound && fault_addr < PHYS_BASE && fault_addr >= (void *)((uint8_t*) esp - 32)) 
+      {
+         if (insert_zero_spt (&temp->spt, upage, true))
+            {
+               if (search_spt (&temp->spt, upage) != NULL && move_page_to_frame (search_spt (&temp->spt, upage))) 
+                  {
+                  return;
+
+                  }
+            }
+      }
+  }
+
   if (user) {
    printf("%s: exit(%d)\n", thread_current()->name, -1);
   }
