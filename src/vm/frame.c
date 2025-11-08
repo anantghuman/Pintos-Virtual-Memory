@@ -56,8 +56,17 @@ void evict_frame()
           }
         else if (!current->is_pinned)
           {
+            sp *supp = current->thread->spt;
+            bool dirty = pagedir_is_dirty (current->thread->pagedir, current->upage);
+            if (!(supp->loc == 0 && !dirty)) 
+              {
+                size_t slot = swap_out (current->kpage);
+                supp->loc = 1;
+                supp->swap = slot;
+              } 
             list_remove (&current->elem);
             palloc_free_page (current->kpage);
+            pagedir_clear_page (current->thread->pagedir, current->upage);
             free(current);
             evicted = true;
           }

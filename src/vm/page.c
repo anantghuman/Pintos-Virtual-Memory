@@ -4,6 +4,8 @@
 #include "threads/vaddr.h"
 #include "userprog/process.h"
 #include "userprog/pagedir.h"
+#include "threads/synch.h"
+#include "filesys/file.h"
 
 /* Copied from pintos documentation */
 unsigned
@@ -88,19 +90,24 @@ bool move_page_to_frame (sp *entry)
       free_frame (f);
       return false;
     }
+    return true;
 }
 
 void del_spt (spt *to_destroy)
 {
-    hash_destroy (to_destroy, free_entry);
+    hash_destroy (&to_destroy->htable, free_entry);
 }
 
 sp *search_spt (spt *table, const void *upage)
 {
     // assuming the upage is the only key data
-    sp *temp;
-    temp->vm_page = upage;
-    return hash_find(&table->htable, temp);
+    struct hash_elem *he;
+    sp temp;
+    temp.vm_page = pg_round_down (upage);
+    lock_acquire(&table->spt_lock);
+    he = hash_find (&table->htable, &temp.elem);
+    lock_release(&table->spt_lock);
+    return he ? hash_entry (he, sp, elem) : NULL;
 }
 
 bool insert_file_spt (spt *table, void *upage, struct file *file,
@@ -149,9 +156,9 @@ bool insert_zero_spt (spt *table, void *upage, bool is_writable)
 bool mark_swapped_spt (spt *table, void *upage, size_t slot)
 {
     lock_acquire (&table->spt_lock);
-    sp *temp;
-    temp->vm_page = pg_round_down (upage);
-    struct hash_elem *t = hash_find (&table->htable, &temp->elem);
+    sp temp;
+    temp.vm_page = pg_round_down (upage);
+    struct hash_elem *t = hash_find (&table->htable, &temp.elem);
     if (!t) 
       {
         lock_release (&table->spt_lock);
