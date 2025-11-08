@@ -8,7 +8,7 @@
 #include "threads/palloc.h"
 
 void frame_init (void);
-frame* get_frame ();
+struct frame_info* get_frame ();
 bool free_frame (void *kpage);
 void evict_frame (void);
 

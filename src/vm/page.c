@@ -43,6 +43,7 @@ sp *search_spt (spt *table, const void *upage)
     temp->vm_page = upage;
     return hash_find(&table->htable, temp);
 }
+
 bool insert_file_spt (spt *table, void *upage, struct file *file,
                      off_t offset, size_t bytes, size_t padding, 
                      bool is_writable)

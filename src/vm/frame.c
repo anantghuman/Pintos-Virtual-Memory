@@ -13,7 +13,7 @@ void frame_init(void)
     clock_hand = NULL;
 }
 
-frame* get_frame(void *upage)  
+struct frame_info* get_frame(void *upage)  
 {
     lock_acquire (&f_lock);
     void *kpage = palloc_get_page(PAL_USER);
