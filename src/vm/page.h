@@ -12,7 +12,7 @@ typedef struct supplemental_page
     struct file *file;
     off_t offset_val;
     size_t bytes;
-    // 0 for file system, 1 for swap
+    // 0 for file system, 1 for swap, 2 for zero, 3 for frame
     int loc;
     bool is_writeable;
     bool is_loaded;

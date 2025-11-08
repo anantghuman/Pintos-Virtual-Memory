@@ -56,7 +56,9 @@ void evict_frame()
           }
         else if (!current->is_pinned)
           {
-            free_frame(current);
+            list_remove (&current->elem);
+            palloc_free_page (current->kpage);
+            free(current);
             evicted = true;
           }
         clock_hand = list_next(clock_hand);

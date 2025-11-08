@@ -2,6 +2,8 @@
 #include "vm/frame.h"
 #include "threads/malloc.h"
 #include "threads/vaddr.h"
+#include "userprog/process.h"
+#include "userprog/pagedir.h"
 
 /* Copied from pintos documentation */
 unsigned
@@ -32,26 +34,60 @@ void free_entry(struct hash_elem *e, void *aux UNUSED)
     free (hash_entry (e, sp, elem));
 }
 
-bool move_page_to_frame (sp *entry) {
+bool move_page_to_frame (sp *entry) 
+{
   void *upage = entry->vm_page;
   frame *f = get_frame ();
   if (f == NULL)
-  {
-    return false;
-  }
+    {
+      return false;
+    }
 
   void *kpage = f->kpage; 
 
-  bool check = true;
+  bool check = false;
   
-  if (entry->loc == 0) {
-    file_seek (entry->file, entry->offset_val);
-    off_t offset = file_read (entry->file, kpage, entry->bytes);
-    if (offset != (off_t) entry->bytes) {
-      check = false;
-    }
-  }
+  // file system
+  if (entry->loc == 0) 
+    {
+      file_seek (entry->file, entry->offset_val);
+      off_t offset = file_read (entry->file, kpage, entry->bytes);
+      if (offset != (off_t) entry->bytes) 
+        {
+          check = false;
+        }
 
+      memset ((uint8_t*) kpage + entry->bytes, 0, entry->padding_bytes);
+      check = true;
+    }
+  // swap
+  if (entry->loc == 1) 
+    {
+      return false;
+    }
+  // zero page
+  if (entry->loc == 2)
+    {
+      memset (kpage, 0, PGSIZE);
+      check = true;
+    }
+
+  if (check)
+    {
+      struct thread *curr = f->thread;
+      if (!pagedir_set_page (curr->pagedir, entry->vm_page, f, entry->is_writeable))
+      {
+        free_frame (f);
+        return false;
+      }
+      entry->is_loaded = true;
+      entry->loc = 3;
+    }
+    else 
+    {
+      free_frame (f);
+      return false;
+    }
 }
 
 void del_spt (spt *to_destroy)

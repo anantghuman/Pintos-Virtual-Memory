@@ -157,7 +157,7 @@ static void page_fault (struct intr_frame *f)
 
   sp *entry = search_spt (&temp->spt, upage);
   if (entry != NULL) {
-   if (load_page (entry)) {
+   if (move_page_to_frame (entry)) {
       return;
    }
   }

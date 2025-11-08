@@ -111,7 +111,7 @@ static void start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  init_spt (thread_current ()->spt);
+  init_spt (&thread_current ()->spt);
   success = load (file_name, &if_.eip, &if_.esp);
   if (c != NULL) {
     c->success = success;
@@ -173,7 +173,7 @@ void process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  del_spt (cur->spt);
+  del_spt (&cur->spt);
   
   if (cur->running_file != NULL) 
       {
@@ -522,7 +522,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
       if (page_read_bytes == PGSIZE || page_read_bytes > 0) 
         {
           if (!insert_file_spt (&thread_current ()->spt, upage, file ,
-                               ofs, PGSIZE, 0, writable))
+                               ofs, page_read_bytes, page_zero_bytes, writable))
             {
               return false;
             } 
