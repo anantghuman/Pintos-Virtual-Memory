@@ -33,13 +33,13 @@ void free_entry(struct hash_elem *e, void *aux UNUSED)
 
 void del_spt (spt *to_destroy)
 {
-    hash_delete (to_destroy, free_entry);
+    hash_destroy (to_destroy, free_entry);
 }
 
 sp *search_spt (spt *table, const void *upage)
 {
     // assuming the upage is the only key data
-    sp *temp = NULL;
+    sp *temp;
     temp->vm_page = upage;
     return hash_find(&table->htable, temp);
 }
@@ -89,15 +89,15 @@ bool insert_zero_spt (spt *table, void *upage, bool is_writable)
 bool mark_swapped_spt (spt *table, void *upage, size_t slot)
 {
     lock_acquire (&table->spt_lock);
-    sp *supp;
-    supp->vm_page = pg_round_down (upage);
-    struct hash_elem *temp = hash_find (&table->htable, &supp->elem);
-    if (!temp) 
+    sp *temp;
+    temp->vm_page = pg_round_down (upage);
+    struct hash_elem *t = hash_find (&table->htable, &temp->elem);
+    if (!t) 
       {
         lock_release (&table->spt_lock);
         return false;
       }
-    sp *supp = hash_entry (temp, sp, elem);
+    sp *supp = hash_entry (t, sp, elem);
     supp->is_loaded = false;
     supp->swap = slot;
     supp->loc = 1;
