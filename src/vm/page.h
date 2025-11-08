@@ -1,18 +1,10 @@
 #ifndef VM_PAGE_H
 #define VM_PAGE_H
 
-
 #include <hash.h>
 #include <stdbool.h>
 #include "filesys/file.h"
 #include "threads/synch.h"
-
-enum sp_loc 
-{
-    SP_LOC_FILE = 0,
-    SP_LOC_SWAP = 1,
-    SP_LOC_ZERO = 2
-};
 
 typedef struct supplemental_page 
 {
@@ -20,6 +12,7 @@ typedef struct supplemental_page
     struct file *file;
     off_t offset_val;
     size_t bytes;
+    // 0 for file system, 1 for swap
     int loc;
     bool is_writeable;
     bool is_loaded;
@@ -38,6 +31,7 @@ typedef struct supplemental_page_table
 unsigned page_hash (const struct hash_elem *p_, void *aux);
 bool page_less (const struct hash_elem *a_, const struct hash_elem *b_, void *aux);
 void init_spt (spt *to_initialize);
+void free_entry(struct hash_elem * e, void *aux);
 void del_spt (spt *to_destroy);
 
 sp *search_spt (spt *table, const void *upage);

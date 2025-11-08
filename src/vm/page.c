@@ -2,7 +2,7 @@
 #include "threads/malloc.h"
 #include "threads/vaddr.h"
 
-/* Returns a hash value for page p. */
+/* Copied from pintos documentation */
 unsigned
 page_hash (const struct hash_elem *p_, void *aux UNUSED)
 {
@@ -10,7 +10,7 @@ page_hash (const struct hash_elem *p_, void *aux UNUSED)
   return hash_bytes (&p->vm_page, sizeof p->vm_page);
 }
 
-/* Returns true if page a precedes page b. */
+/* Copied from pintos documentation */
 bool
 page_less (const struct hash_elem *a_, const struct hash_elem *b_,
            void *aux UNUSED)
@@ -23,61 +23,84 @@ page_less (const struct hash_elem *a_, const struct hash_elem *b_,
 
 void init_spt (spt *table) {
     hash_init (&table->htable, page_hash, page_less, NULL);
+    lock_init (&table->spt_lock);
 }
 
-void init_spt (spt *to_initialize)
+void free_entry(struct hash_elem *e, void *aux UNUSED)
 {
-    return;
+    free (hash_entry (e, sp, elem));
 }
+
 void del_spt (spt *to_destroy)
 {
-    return;
+    hash_delete (to_destroy, free_entry);
 }
 
 sp *search_spt (spt *table, const void *upage)
 {
-    return NULL;
+    // assuming the upage is the only key data
+    sp *temp = NULL;
+    temp->vm_page = upage;
+    return hash_find(&table->htable, temp);
 }
 bool insert_file_spt (spt *table, void *upage, struct file *file,
-                     off_t offset, size_t bytes, size_t zero_bytes, 
-                     bool writable)
+                     off_t offset, size_t bytes, size_t padding, 
+                     bool is_writable)
 {
-    return false;
-}
-
-bool insert_zero_spt (spt *table, void *upage, bool writable)
-{
-    sp *supp = malloc (sizeof (sp));
-    if (!supp) 
+    sp *temp = malloc(sizeof(sp));
+    if (temp == NULL)
       {
         return false;
       }
-    supp->file = NULL;
-    supp->offset_val = 0;
-    supp->bytes = 0;
-    supp->padding_bytes = PGSIZE;
-    supp->is_writeable = writable;
-    supp->is_loaded = false;
-    supp->loc = SP_LOC_ZERO;
-    supp->vm_page = pg_round_down (upage);
-    supp->swap = SIZE_MAX;
-    return hash_insert (&table->htable, &supp->elem) == NULL;
+    temp->vm_page = pg_round_down(upage);
+    temp->file = file;
+    temp->offset_val = offset;
+    temp->bytes = bytes;
+    temp->padding_bytes = padding;
+    temp->is_writeable = is_writable;
+    temp->loc = 0;
+    lock_acquire(&table->spt_lock);
+    bool ret = hash_insert (&table->htable, &temp->elem) == NULL;
+    lock_release(&table->spt_lock);
+    return ret;
+}
+
+bool insert_zero_spt (spt *table, void *upage, bool is_writable)
+{
+    sp *temp = malloc (sizeof (sp));
+    if (temp == NULL) 
+      {
+        return false;
+      }
+    temp->file = NULL;
+    temp->offset_val = 0;
+    temp->bytes = 0;
+    temp->padding_bytes = PGSIZE;
+    temp->is_writeable = is_writable;
+    temp->is_loaded = false;
+    temp->loc = 0;
+    temp->vm_page = pg_round_down (upage);
+    temp->swap = SIZE_MAX;
+    lock_acquire(&table->spt_lock);
+    bool ret = hash_insert (&table->htable, &temp->elem) == NULL;
+    lock_release(&table->spt_lock);
+    return ret;
 }
 bool mark_swapped_spt (spt *table, void *upage, size_t slot)
 {
     lock_acquire (&table->spt_lock);
     sp *supp;
     supp->vm_page = pg_round_down (upage);
-    struct hash_elem *he = hash_find (&table->htable, &supp->elem);
-    if (!he) 
+    struct hash_elem *temp = hash_find (&table->htable, &supp->elem);
+    if (!temp) 
       {
         lock_release (&table->spt_lock);
         return false;
       }
-    sp *supp = hash_entry (he, sp, elem);
+    sp *supp = hash_entry (temp, sp, elem);
     supp->is_loaded = false;
     supp->swap = slot;
-    supp->loc = SP_LOC_SWAP;
+    supp->loc = 1;
     lock_release (&table->spt_lock);
     return true;
 }
