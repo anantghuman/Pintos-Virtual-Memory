@@ -40,7 +40,7 @@ bool move_page_to_frame (sp *entry) {
     return false;
   }
 
-  void *kpage = f->kpage;
+  void *kpage = f->kpage; 
 
   bool check = true;
   
