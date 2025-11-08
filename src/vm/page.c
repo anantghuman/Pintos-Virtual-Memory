@@ -6,6 +6,7 @@
 #include "userprog/pagedir.h"
 #include "threads/synch.h"
 #include "filesys/file.h"
+#include <string.h>
 
 /* Copied from pintos documentation */
 unsigned
@@ -39,8 +40,8 @@ void free_entry(struct hash_elem *e, void *aux UNUSED)
 bool move_page_to_frame (sp *entry) 
 {
   void *upage = entry->vm_page;
-  frame *f = get_frame ();
-  if (f == NULL)
+  frame *f = get_frame (upage);
+  if (f == NULL)  
     {
       return false;
     }
@@ -77,17 +78,18 @@ bool move_page_to_frame (sp *entry)
   if (check)
     {
       struct thread *curr = f->thread;
-      if (!pagedir_set_page (curr->pagedir, entry->vm_page, f, entry->is_writeable))
+      if (!pagedir_set_page (curr->pagedir, entry->vm_page, kpage, entry->is_writeable))
       {
-        free_frame (f);
+        free_frame (kpage);
         return false;
       }
       entry->is_loaded = true;
       entry->loc = 3;
+      return true;
     }
     else 
     {
-      free_frame (f);
+      free_frame (kpage);
       return false;
     }
     return true;
@@ -103,7 +105,7 @@ sp *search_spt (spt *table, const void *upage)
     // assuming the upage is the only key data
     struct hash_elem *he;
     sp temp;
-    temp.vm_page = pg_round_down (upage);
+    temp.vm_page = pg_round_down ((void*) upage);
     lock_acquire(&table->spt_lock);
     he = hash_find (&table->htable, &temp.elem);
     lock_release(&table->spt_lock);
@@ -145,7 +147,7 @@ bool insert_zero_spt (spt *table, void *upage, bool is_writable)
     temp->padding_bytes = PGSIZE;
     temp->is_writeable = is_writable;
     temp->is_loaded = false;
-    temp->loc = 0;
+    temp->loc = 2;
     temp->vm_page = pg_round_down (upage);
     temp->swap = SIZE_MAX;
     lock_acquire(&table->spt_lock);

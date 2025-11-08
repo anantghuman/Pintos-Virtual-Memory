@@ -13,6 +13,7 @@
         "synch.h": "c",
         "page.h": "c",
         "thread.h": "c",
-        "malloc.h": "c"
+        "malloc.h": "c",
+        "pte.h": "c"
     }
 }
