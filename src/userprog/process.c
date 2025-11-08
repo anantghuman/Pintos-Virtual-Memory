@@ -17,6 +17,8 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
+#include "vm/frame.h"
 
 extern struct lock file_lock;
 
@@ -109,6 +111,7 @@ static void start_process (void *file_name_)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+  init_spt (thread_current ()->spt);
   success = load (file_name, &if_.eip, &if_.esp);
   if (c != NULL) {
     c->success = success;
@@ -170,7 +173,8 @@ void process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
+  del_spt (cur->spt);
+  
   if (cur->running_file != NULL) 
       {
         file_allow_write (cur->running_file);
@@ -515,25 +519,22 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
       size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
       /* Get a page of memory. */
-      uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
-        return false;
-
-      /* Load this page. */
-      if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
+      if (page_read_bytes == PGSIZE || page_read_bytes > 0) 
         {
-          palloc_free_page (kpage);
-          return false;
-        }
-      memset (kpage + page_read_bytes, 0, page_zero_bytes);
-
-      /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable))
+          if (!insert_file_spt (&thread_current ()->spt, upage, file ,
+                               ofs, PGSIZE, 0, writable))
+            {
+              return false;
+            } 
+        } 
+      else
         {
-          palloc_free_page (kpage);
-          return false;
+          if (!insert_zero_spt (&thread_current ()->spt, upage, writable))
+            {
+              return false;
+            }
         }
-
+      
       /* Advance. */
       read_bytes -= page_read_bytes;
       zero_bytes -= page_zero_bytes;

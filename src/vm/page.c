@@ -1,4 +1,5 @@
 #include "vm/page.h"
+#include "vm/frame.h"
 #include "threads/malloc.h"
 #include "threads/vaddr.h"
 
@@ -29,6 +30,28 @@ void init_spt (spt *table) {
 void free_entry(struct hash_elem *e, void *aux UNUSED)
 {
     free (hash_entry (e, sp, elem));
+}
+
+bool move_page_to_frame (sp *entry) {
+  void *upage = entry->vm_page;
+  frame *f = get_frame ();
+  if (f == NULL)
+  {
+    return false;
+  }
+
+  void *kpage = f->kpage;
+
+  bool check = true;
+  
+  if (entry->loc == 0) {
+    file_seek (entry->file, entry->offset_val);
+    off_t offset = file_read (entry->file, kpage, entry->bytes);
+    if (offset != (off_t) entry->bytes) {
+      check = false;
+    }
+  }
+
 }
 
 void del_spt (spt *to_destroy)
