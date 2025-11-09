@@ -7,8 +7,10 @@
 #include "threads/synch.h"
 #include "filesys/file.h"
 #include <string.h>
+#include "vm/swap.h"
 
 extern struct lock file_lock;
+extern struct lock f_lock;
 
 /* Copied from pintos documentation */
 unsigned
@@ -39,9 +41,9 @@ void free_entry(struct hash_elem *e, void *aux UNUSED)
     free (hash_entry (e, sp, elem));
 }
 
-bool move_page_to_frame (sp *entry) 
+bool move_page_to_frame (sp *page) 
 {
-  void *upage = entry->vm_page;
+  void *upage = page->vm_page;
   frame *f = get_frame (upage);
   if (f == NULL)  
     {
@@ -53,28 +55,29 @@ bool move_page_to_frame (sp *entry)
   bool check = false;
   
   // file system
-  if (entry->loc == 0) 
+  if (page->loc == 0) 
     {
       lock_acquire (&file_lock);
-      file_seek (entry->file, entry->offset_val);
-      off_t offset = file_read (entry->file, kpage, entry->bytes);
+      file_seek (page->file, page->offset_val);
+      off_t offset = file_read (page->file, kpage, page->bytes);
       lock_release (&file_lock);
-      if (offset != (off_t) entry->bytes) 
+      if (offset != (off_t) page->bytes) 
         {
           free_frame (kpage);
           return false;
         }
 
-      memset ((uint8_t*) kpage + entry->bytes, 0, entry->padding_bytes);
+      memset ((uint8_t*) kpage + page->bytes, 0, page->padding_bytes);
       check = true;
     }
   // swap
-  if (entry->loc == 1) 
+  if (page->loc == 1) 
     {
-      return false;
+      swap_read_sectors (kpage, page->swap);
+      check = true;
     }
   // zero page
-  if (entry->loc == 2)
+  if (page->loc == 2)
     {
       memset (kpage, 0, PGSIZE);
       check = true;
@@ -83,13 +86,12 @@ bool move_page_to_frame (sp *entry)
   if (check)
     {
       struct thread *curr = f->thread;
-      if (!pagedir_set_page (curr->pagedir, entry->vm_page, kpage, entry->is_writeable))
+      if (!pagedir_set_page (curr->pagedir, page->vm_page, kpage, page->is_writeable))
       {
         free_frame (kpage);
         return false;
       }
-      entry->is_in_frame = true;
-      entry->loc = 3;
+      page->is_in_frame = true;
       return true;
     }
     else 

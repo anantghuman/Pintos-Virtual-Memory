@@ -1,3 +1,7 @@
+#ifndef VM_SWAP_H
+#define VM_SWAP_H
+
+
 #include "vm/page.h"
 #include "vm/frame.h"
 
@@ -8,9 +12,11 @@ typedef struct swap_info {
     struct block *swap_partition;
     struct bitmap *bitmap;
     struct lock s_lock;
-} swap;
+} sw;
 
 void swap_init ();
-void swap_write_sector (void *kpage, size_t *s);
-void swap_read_sector (void *kpage, size_t s);
-void swap_free_sector (size_t s);
+size_t swap_write_sectors (void *kpage);
+void swap_read_sectors (void *kpage, size_t s);
+void swap_free_sectors (size_t s);
+
+#endif

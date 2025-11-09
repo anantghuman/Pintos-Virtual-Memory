@@ -3,23 +3,24 @@
 #include "lib/kernel/bitmap.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 struct swap_info *swap;
 
 void swap_init ()
 {
-    swap = malloc (sizeof (swap));
+    swap = malloc (sizeof (*swap));
     if (!swap)
       {
         thread_current ()->exit_stat = -1;
         thread_exit();
       }
     swap->swap_partition = block_get_role (BLOCK_SWAP);
-    swap->bitmap = bitmap_create (block_size (swap->swap_partition) / 8);
+    swap->bitmap = bitmap_create (block_size (swap->swap_partition) / (PGSIZE / BLOCK_SECTOR_SIZE));
     lock_init (&swap->s_lock);
 }
 
-void swap_write_sector (void *kpage, size_t *s)
+size_t swap_write_sectors (void *kpage)
 {
     lock_acquire (&swap->s_lock);
     size_t slot = bitmap_scan_and_flip (swap->bitmap, 0, 1, false);
@@ -40,7 +41,7 @@ void swap_write_sector (void *kpage, size_t *s)
     return slot;
 }
 
-void swap_read_sector (void *kpage, size_t s)
+void swap_read_sectors (void *kpage, size_t s)
 {
     lock_acquire (&swap->s_lock);
     for (size_t i = 0; i < (PGSIZE/BLOCK_SECTOR_SIZE); i++)
@@ -52,7 +53,7 @@ void swap_read_sector (void *kpage, size_t s)
     lock_release (&swap->s_lock);
 }
 
-void swap_free_sector (size_t s)
+void swap_free_sectors (size_t s)
 {
     lock_acquire (&swap->s_lock);
     if (swap == NULL || swap->swap_partition == NULL)

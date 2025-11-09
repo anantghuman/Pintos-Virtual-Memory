@@ -173,7 +173,6 @@ void process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  del_spt (&cur->spt);
   
   if (cur->running_file != NULL) 
       {
@@ -198,6 +197,8 @@ void process_exit (void)
     cur->child_ptr->exit_stat = cur->exit_stat;
     sema_up (&cur->child_ptr->wait);
   }
+
+  del_spt (&cur->spt);
 
   
   /* Destroy the current process's page directory and switch back

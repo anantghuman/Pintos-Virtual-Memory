@@ -1,8 +1,8 @@
 #include "vm/frame.h"
 #include "threads/malloc.h"
 #include "userprog/pagedir.h"
-#include "swap.h"
 #include "threads/vaddr.h"
+#include "vm/swap.h"
 
 struct list f_table;
 struct lock f_lock;
@@ -25,11 +25,12 @@ frame *find_frame (void *upage)
       if (f->upage == upage && f->thread == thread_current())
         {
           lock_release (&f_lock);
-          return;
+          return NULL;
         }
       temp = list_next (temp);
     }
   lock_release (&f_lock);
+  return NULL;
 }
 
 void pin_buffer_frames (void *buf_ptr, unsigned *size_ptr) 
@@ -99,6 +100,10 @@ struct frame_info* get_frame(void *upage)
 
 void evict_frame() 
 {
+    if (list_empty (&f_table))
+      {
+        return;
+      }
     if (clock_hand == NULL) 
       {
         clock_hand = list_begin (&f_table);
@@ -113,17 +118,27 @@ void evict_frame()
           }
         else if (!current->is_pinned)
           {
-            sp *supp = &current->thread->spt;
+            sp *supp = search_spt (&current->thread->spt, current->upage);
             bool dirty = pagedir_is_dirty (current->thread->pagedir, current->upage);
-            // if (!(supp->loc == 0 && !dirty)) 
-            //   {
-            //     size_t slot = swap_out (current->kpage);
-            //     supp->loc = 1;
-            //     supp->swap = slot;
-            //  } 
-            list_remove (&current->elem);
-            palloc_free_page (current->kpage);
+            if (!(supp != NULL && (supp->loc == 0 && !dirty))) 
+              {
+                size_t slot = swap_write_sectors (current->kpage);
+                mark_swapped_spt (&current->thread->spt, current->upage, slot);
+              } 
+            else 
+              {
+                lock_acquire(&current->thread->spt.spt_lock);
+                supp->is_in_frame = false;
+                lock_release(&current->thread->spt.spt_lock);
+              }
+            clock_hand = list_next(clock_hand);
+            if (clock_hand == list_end(&f_table))
+              {
+                clock_hand = list_begin(&f_table);
+              }
             pagedir_clear_page (current->thread->pagedir, current->upage);
+            palloc_free_page (current->kpage);  
+            list_remove (&current->elem);
             free(current);
             evicted = true;
           }

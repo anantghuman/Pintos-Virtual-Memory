@@ -197,9 +197,10 @@ static void page_fault (struct intr_frame *f)
         }
     }
 
-  if (user) {
-   printf("%s: exit(%d)\n", thread_current()->name, -1);
-  }
+  if (user) 
+   {
+      printf("%s: exit(%d)\n", thread_current()->name, -1);
+   }
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
