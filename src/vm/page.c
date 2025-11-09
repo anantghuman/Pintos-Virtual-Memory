@@ -156,7 +156,6 @@ bool insert_zero_spt (spt *table, void *upage, bool is_writable)
     temp->is_in_frame = false;
     temp->loc = 2;
     temp->vm_page = pg_round_down (upage);
-    temp->swap = SIZE_MAX;
     lock_acquire(&table->spt_lock);
     bool ret = hash_insert (&table->htable, &temp->elem) == NULL;
     lock_release(&table->spt_lock);
@@ -165,15 +164,12 @@ bool insert_zero_spt (spt *table, void *upage, bool is_writable)
 bool mark_swapped_spt (spt *table, void *upage, size_t slot)
 {
     lock_acquire (&table->spt_lock);
-    sp temp;
-    temp.vm_page = pg_round_down (upage);
-    struct hash_elem *t = hash_find (&table->htable, &temp.elem);
-    if (!t) 
-      {
-        lock_release (&table->spt_lock);
-        return false;
-      }
-    sp *supp = hash_entry (t, sp, elem);
+    sp *supp = search_spt (table, upage);
+    if (supp == NULL) 
+    {
+      lock_release (&table->spt_lock);
+      return false;
+    }
     supp->is_in_frame = false;
     supp->swap = slot;
     supp->loc = 1;
