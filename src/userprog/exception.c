@@ -105,6 +105,24 @@ static void kill (struct intr_frame *f)
     }
 }
 
+bool stack_check (void *pf_addr, void *esp)
+{
+   void *end = (void *) ((uint8_t *) PHYS_BASE - MAX_STACK_SIZE);
+   if (pf_addr < end) 
+     {
+       return false;
+     }
+   if ((uint8_t *) pf_addr >= PHYS_BASE)
+     {
+       return false;
+     }
+   if (pf_addr >= (uint8_t *) esp - 32)
+     {
+       return true;
+     }
+   return false;
+}
+
 /* Page fault handler.  This is a skeleton that must be filled in
    to implement virtual memory.  Some solutions to project 2 may
    also require modifying this code.
@@ -162,22 +180,22 @@ static void page_fault (struct intr_frame *f)
    }
   }
 
-  if (not_present && user) 
-  {
+  if (not_present && user && stack_check (fault_addr, f->esp)) 
+    {
       void *esp = f->esp;
-      void *stack_bound = (uint8_t)PHYS_BASE - MAX_STACK_SIZE;
+      void *stack_bound = (uint8_t *)PHYS_BASE - MAX_STACK_SIZE;
       if (fault_addr >= stack_bound && fault_addr < PHYS_BASE && fault_addr >= (void *)((uint8_t*) esp - 32)) 
-      {
+        {
+
          if (insert_zero_spt (&temp->spt, upage, true))
             {
                if (search_spt (&temp->spt, upage) != NULL && move_page_to_frame (search_spt (&temp->spt, upage))) 
                   {
                   return;
-
                   }
             }
-      }
-  }
+        }
+    }
 
   if (user) {
    printf("%s: exit(%d)\n", thread_current()->name, -1);
