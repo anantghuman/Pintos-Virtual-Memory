@@ -6,6 +6,7 @@
 #include "pagedir.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "vm/frame.h"
 
 struct lock file_lock;
 
@@ -247,16 +248,18 @@ static void syscall_handler (struct intr_frame *f UNUSED)
         f->eax = -1;
         break;
       }
-    
+      pin_buffer_frames (*buf_ptr, (unsigned *) size_ptr);
       lock_acquire (&file_lock);
       file_desc = find_filept (*fd_ptr);
       if (file_desc == NULL) {
         f->eax = -1;
         lock_release (&file_lock);
+        unpin_buffer_frames (*buf_ptr, (unsigned *) size_ptr);
         break;
       }
       f->eax = file_read (file_desc->file, *buf_ptr, *size_ptr);
       lock_release (&file_lock);
+      unpin_buffer_frames (*buf_ptr, (unsigned *) size_ptr);
       break;
     //Soham drove
     case SYS_WRITE: {
@@ -288,16 +291,18 @@ static void syscall_handler (struct intr_frame *f UNUSED)
         f->eax = -1;
         break;
       }
-
+      pin_buffer_frames (*t2, (unsigned *) t3);
       lock_acquire (&file_lock);
       file_desc = find_filept (*t);
       if (file_desc == NULL) {
         f->eax = -1;
         lock_release (&file_lock);
+        unpin_buffer_frames (*t2, (unsigned *) t3);
         break;
       }
       f->eax = file_write (file_desc->file, *t2, *t3);
       lock_release (&file_lock);
+      unpin_buffer_frames (*t2, (unsigned *) t3);
       break;
     }
     //Soham drove

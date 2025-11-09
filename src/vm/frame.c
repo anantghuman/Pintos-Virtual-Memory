@@ -2,6 +2,7 @@
 #include "threads/malloc.h"
 #include "userprog/pagedir.h"
 #include "swap.h"
+#include "threads/vaddr.h"
 
 struct list f_table;
 struct lock f_lock;
@@ -13,6 +14,52 @@ void frame_init(void)
     lock_init (&f_lock);
     clock_hand = NULL;
 }
+
+void find_frame (void *upage, bool pin) 
+{
+  lock_acquire (&f_lock);
+  struct list_elem *temp = list_begin (&f_table);
+  while (temp != list_end (&f_table)) 
+    {
+      frame *f = list_entry (temp, frame, elem);
+      if (f->upage == upage && f->thread == thread_current())
+        {
+          f->is_pinned = pin;
+          lock_release (&f_lock);
+          return;
+        }
+      temp = list_next (temp);
+    }
+  lock_release (&f_lock);
+}
+
+void pin_buffer_frames (void *buf_ptr, unsigned *size_ptr) 
+{
+  uint8_t *page = pg_round_down (buf_ptr);
+  while (page < (uint8_t *) buf_ptr + *size_ptr) 
+    {
+      sp *temp = search_spt (&thread_current ()->spt, (void*) page);
+      if (pagedir_get_page (thread_current ()->pagedir, page) == NULL && temp)
+        {
+          if (!temp || !move_page_to_frame (temp)) 
+            {
+              return;
+            }
+        }
+      find_frame (page, true);
+      page += PGSIZE;
+    }
+}
+
+void unpin_buffer_frames (void *buf_ptr , unsigned *size_ptr)
+  {
+    uint8_t *page = pg_round_down (buf_ptr);
+    while (page < (uint8_t *) buf_ptr + *size_ptr) 
+      {
+        find_frame (page, false);
+        page += PGSIZE;
+      }
+  }
 
 struct frame_info* get_frame(void *upage)  
 {
