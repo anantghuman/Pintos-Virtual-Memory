@@ -15,7 +15,7 @@ typedef struct supplemental_page
     // 0 for file system, 1 for swap, 2 for zero, 3 for frame
     int loc;
     bool is_writeable;
-    bool is_loaded;
+    bool is_in_frame;
     int padding_bytes;
     struct hash_elem elem;
     size_t swap;

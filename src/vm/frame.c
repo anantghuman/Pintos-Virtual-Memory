@@ -15,7 +15,7 @@ void frame_init(void)
     clock_hand = NULL;
 }
 
-void find_frame (void *upage, bool pin) 
+frame *find_frame (void *upage) 
 {
   lock_acquire (&f_lock);
   struct list_elem *temp = list_begin (&f_table);
@@ -24,7 +24,6 @@ void find_frame (void *upage, bool pin)
       frame *f = list_entry (temp, frame, elem);
       if (f->upage == upage && f->thread == thread_current())
         {
-          f->is_pinned = pin;
           lock_release (&f_lock);
           return;
         }
@@ -36,6 +35,7 @@ void find_frame (void *upage, bool pin)
 void pin_buffer_frames (void *buf_ptr, unsigned *size_ptr) 
 {
   uint8_t *page = pg_round_down (buf_ptr);
+  frame *f;
   while (page < (uint8_t *) buf_ptr + *size_ptr) 
     {
       sp *temp = search_spt (&thread_current ()->spt, (void*) page);
@@ -46,7 +46,11 @@ void pin_buffer_frames (void *buf_ptr, unsigned *size_ptr)
               return;
             }
         }
-      find_frame (page, true);
+      f = find_frame (page);
+      if (f != NULL)
+        {
+          f->is_pinned = true;
+        }
       page += PGSIZE;
     }
 }
@@ -54,9 +58,14 @@ void pin_buffer_frames (void *buf_ptr, unsigned *size_ptr)
 void unpin_buffer_frames (void *buf_ptr , unsigned *size_ptr)
   {
     uint8_t *page = pg_round_down (buf_ptr);
+    frame *f;
     while (page < (uint8_t *) buf_ptr + *size_ptr) 
       {
-        find_frame (page, false);
+        f = find_frame (page);
+        if (f != NULL) 
+          {
+            f->is_pinned = false;
+          }
         page += PGSIZE;
       }
   }

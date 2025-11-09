@@ -8,6 +8,8 @@
 #include "filesys/file.h"
 #include <string.h>
 
+extern struct lock file_lock;
+
 /* Copied from pintos documentation */
 unsigned
 page_hash (const struct hash_elem *p_, void *aux UNUSED)
@@ -53,11 +55,14 @@ bool move_page_to_frame (sp *entry)
   // file system
   if (entry->loc == 0) 
     {
+      lock_acquire (&file_lock);
       file_seek (entry->file, entry->offset_val);
       off_t offset = file_read (entry->file, kpage, entry->bytes);
+      lock_release (&file_lock);
       if (offset != (off_t) entry->bytes) 
         {
-          check = false;
+          free_frame (kpage);
+          return false;
         }
 
       memset ((uint8_t*) kpage + entry->bytes, 0, entry->padding_bytes);
@@ -83,7 +88,7 @@ bool move_page_to_frame (sp *entry)
         free_frame (kpage);
         return false;
       }
-      entry->is_loaded = true;
+      entry->is_in_frame = true;
       entry->loc = 3;
       return true;
     }
@@ -97,7 +102,9 @@ bool move_page_to_frame (sp *entry)
 
 void del_spt (spt *to_destroy)
 {
+    lock_acquire (&to_destroy->spt_lock);
     hash_destroy (&to_destroy->htable, free_entry);
+    lock_release (&to_destroy->spt_lock);
 }
 
 sp *search_spt (spt *table, const void *upage)
@@ -146,7 +153,7 @@ bool insert_zero_spt (spt *table, void *upage, bool is_writable)
     temp->bytes = 0;
     temp->padding_bytes = PGSIZE;
     temp->is_writeable = is_writable;
-    temp->is_loaded = false;
+    temp->is_in_frame = false;
     temp->loc = 2;
     temp->vm_page = pg_round_down (upage);
     temp->swap = SIZE_MAX;
@@ -167,7 +174,7 @@ bool mark_swapped_spt (spt *table, void *upage, size_t slot)
         return false;
       }
     sp *supp = hash_entry (t, sp, elem);
-    supp->is_loaded = false;
+    supp->is_in_frame = false;
     supp->swap = slot;
     supp->loc = 1;
     lock_release (&table->spt_lock);

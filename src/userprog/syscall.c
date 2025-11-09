@@ -18,15 +18,24 @@ void syscall_init (void)
   lock_init (&file_lock);
 }
 
-/* Verifies that a pointer is valid, Otherwise returns -1*/
+/* Verifies that a pointer is valid, otherwise exits with -1 */
 void check_ptr (const void *ptr) 
 {
-  if (ptr == NULL || !is_user_vaddr (ptr) || 
-      pagedir_get_page (thread_current ()->pagedir, ptr) == NULL)
+  if (ptr == NULL || !is_user_vaddr (ptr))
   {
     thread_current()->exit_stat = -1;
     printf("%s: exit(-1)\n", thread_current ()->name);
     thread_exit(); 
+  }
+  if (pagedir_get_page (thread_current ()->pagedir, ptr) == NULL) 
+  {
+    sp* temp = search_spt (&thread_current ()->spt, ptr);
+    if (!temp)
+    {
+      thread_current()->exit_stat = -1;
+      printf("%s: exit(-1)\n", thread_current ()->name);
+      thread_exit(); 
+    }
   }
 }
 
